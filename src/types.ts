@@ -96,12 +96,22 @@ export interface FlatTechnique {
   type: 'sufficient' | 'advisory' | 'failure';
   criterionNum: string;
   criterionHandle: string;
+  situationLetter?: string;
   situationTitle?: string;
   url: string;
 }
 
+export interface Situation {
+  id: string;
+  letter: string;
+  title: string;
+  criterionNum: string;
+  criterionHandle: string;
+  techniques: FlatTechnique[];
+}
+
 export interface SearchResult {
-  type: 'criterion' | 'guideline' | 'principle' | 'technique';
+  type: 'criterion' | 'guideline' | 'principle' | 'technique' | 'situation';
   id: string;
   num?: string;
   handle?: string;
@@ -118,6 +128,7 @@ export interface FormatOptions {
   format?: OutputFormat;
   fields?: string[];
   includeTechniques?: boolean;
+  situation?: string;
   techFilter?: string[];
   compact?: boolean;
 }

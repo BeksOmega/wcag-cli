@@ -11,6 +11,7 @@ Browsing the official WCAG Quick Reference web application can easily dump 50,00
 
 Built according to [Agent DX Principles](https://justin.poehnelt.com/posts/rewrite-your-cli-for-ai-agents/):
 - ⚡ **Zero-Latency Offline Execution**: Bundles `wcag22.json` directly (~306 KB) for instant (<5ms) queries in sandboxed environments without network egress.
+- 🌳 **First-Class Situations (Decision Trees)**: Directly query the 52 conditional implementation scenarios (e.g. decorative image vs. complex chart vs. input button) for targeted techniques without token dumps.
 - 🎯 **Context Window Discipline**: Field projection (`--fields`) and compact Markdown output prevent token bloat.
 - 🛡️ **Hallucination Hardening**: Defensively normalizes malformed agent arguments (`1.4.3?fields=all`, `SC-1.4.3`, `%201.4.3`).
 - 🔍 **Schema Introspection**: `wcag schema` lets agents self-serve command and model definitions at runtime.
@@ -53,12 +54,28 @@ wcag list --level AA
 wcag list --guideline 1.4 --fields num,handle,level --output json
 ```
 
-### 3. Inspect Success Criteria (`get`)
+### 3. Conditional Situations / Decision Trees (`situations` / `situation`)
+Explore conditional implementation scenarios for a specific UI context:
+```bash
+# List all situations for Non-text Content (returns Situations A through F)
+wcag situations 1.1.1
+
+# Get techniques tailored strictly to Situation F (purely decorative images)
+wcag situation 1.1.1 F
+
+# Search across situations (e.g., finding complex chart guidance)
+wcag situations --search "chart"
+```
+
+### 4. Inspect Success Criteria (`get`)
 Inspect normative requirement text, details, and exceptions:
 ```bash
 # Get criterion by number or slug
 wcag get 1.4.3
 wcag get contrast-minimum
+
+# Target a specific situation directly (returns ~120 tokens instead of ~800)
+wcag get 1.1.1 --situation F
 
 # Include sufficient and failure techniques filtered by technology
 wcag get 1.1.1 --techniques --tech html,aria
@@ -68,36 +85,36 @@ wcag get 2.5.7 --techniques   # Dragging Movements
 wcag get 3.3.8               # Accessible Authentication
 ```
 
-### 4. Code Review Failures Checklist (`failures`)
+### 5. Code Review Failures Checklist (`failures`)
 Retrieve common failure anti-patterns to check during code review:
 ```bash
 wcag failures 1.1.1
 wcag failures 2.1.2
 ```
 
-### 5. Look up Techniques (`tech`)
+### 6. Look up Techniques (`tech`)
 Inspect specific technique or failure IDs (e.g. `ARIA6`, `G18`, `F3`):
 ```bash
 wcag tech ARIA6
 wcag tech F3
 ```
 
-### 6. Full-Text Search (`search`)
-Ranked keyword search across criteria, requirements, and techniques:
+### 7. Full-Text Search (`search`)
+Ranked keyword search across criteria, situations, and techniques:
 ```bash
 wcag search "color contrast" --level AA
 wcag search "dragging" --limit 3
 wcag search "focus visible"
 ```
 
-### 7. Schema Introspection (`schema`)
+### 8. Schema Introspection (`schema`)
 Dump machine-readable JSON schemas for agent introspection:
 ```bash
 wcag schema
-wcag schema get
+wcag schema situations
 ```
 
-### 8. Upstream Sync (`sync`)
+### 9. Upstream Sync (`sync`)
 Optionally refresh the local cache with the latest errata from the W3C repository:
 ```bash
 wcag sync
@@ -126,10 +143,12 @@ wcag sync
 ### Available MCP Tools:
 - `wcag_tree`: Retrieve principle and guideline structure.
 - `wcag_list_criteria`: Filter criteria by level, guideline, or principle.
-- `wcag_get_criterion`: Inspect normative requirements and techniques with field projection.
+- `wcag_list_situations`: List conditional decision branches for a criterion.
+- `wcag_get_situation`: Get details and techniques for a specific conditional situation.
+- `wcag_get_criterion`: Inspect normative requirements and techniques (with optional `situation` filter).
 - `wcag_get_failures`: Retrieve code review failure checklists.
 - `wcag_get_technique`: Look up specific technique / failure doc.
-- `wcag_search`: Search WCAG standards and techniques.
+- `wcag_search`: Search WCAG standards, situations, and techniques.
 
 ---
 
@@ -148,15 +167,16 @@ import { getDatabase } from 'wcag-cli';
 
 const db = getDatabase();
 
-// Query criteria
-const sc = db.getCriterion('1.4.3');
-console.log(sc?.title, sc?.level);
+// Query situations
+const situations = db.getSituations('1.1.1');
+console.log(situations.map(s => `Situation ${s.letter}: ${s.title}`));
+
+// Query specific situation
+const sitF = db.getSituation('1.1.1', 'F');
+console.log(sitF?.techniques);
 
 // Search
 const results = db.search('contrast', { level: 'AA', limit: 3 });
-
-// Techniques & Failures
-const failures = db.getFailuresForCriterion('1.1.1');
 ```
 
 ---

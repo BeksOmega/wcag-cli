@@ -11,12 +11,14 @@ import {
   formatTreeMarkdown,
   formatCriteriaListMarkdown,
   formatCriterionMarkdown,
+  formatSituationsListMarkdown,
+  formatSituationMarkdown,
   formatFailuresMarkdown,
   formatTechniqueMarkdown,
   formatSearchMarkdown,
   formatJsonOutput,
 } from './formatters.js';
-import { normalizeLevel } from './harden.js';
+import { normalizeSituationLetter } from './harden.js';
 
 export function createMcpServer(): Server {
   const db = getDatabase();
@@ -99,13 +101,17 @@ export function createMcpServer(): Server {
         {
           name: 'wcag_get_criterion',
           description:
-            'Get the normative requirements, details, exceptions, and techniques for a specific WCAG Success Criterion.',
+            'Get normative requirements, details, exceptions, and techniques for a specific WCAG Success Criterion. Optionally filter to a specific conditional Situation (e.g. A, B, F).',
           inputSchema: {
             type: 'object',
             properties: {
               id: {
                 type: 'string',
                 description: 'Criterion ID or number (e.g. "1.4.3", "contrast-minimum", "2.5.7")',
+              },
+              situation: {
+                type: 'string',
+                description: 'Filter techniques strictly to a specific conditional situation letter (e.g. "A", "B", "F")',
               },
               includeTechniques: {
                 type: 'boolean',
@@ -129,6 +135,53 @@ export function createMcpServer(): Server {
               },
             },
             required: ['id'],
+          },
+        },
+        {
+          name: 'wcag_list_situations',
+          description:
+            'List the conditional implementation scenarios (decision tree) for a criterion (e.g. Situation A vs B vs F).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              id: {
+                type: 'string',
+                description: 'Optional criterion ID or number (e.g. "1.1.1", "1.4.3")',
+              },
+              search: {
+                type: 'string',
+                description: 'Optional keyword to search across scenario descriptions (e.g. "chart", "captcha", "decoration")',
+              },
+              format: {
+                type: 'string',
+                enum: ['markdown', 'json'],
+                default: 'markdown',
+              },
+            },
+          },
+        },
+        {
+          name: 'wcag_get_situation',
+          description:
+            'Get details and sufficient techniques for a specific conditional situation (e.g. 1.1.1 Situation A).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              criterionId: {
+                type: 'string',
+                description: 'Criterion ID or number (e.g. "1.1.1", "1.4.3")',
+              },
+              letter: {
+                type: 'string',
+                description: 'Situation letter (e.g. "A", "B", "C", "F")',
+              },
+              format: {
+                type: 'string',
+                enum: ['markdown', 'json'],
+                default: 'markdown',
+              },
+            },
+            required: ['criterionId', 'letter'],
           },
         },
         {
@@ -174,7 +227,7 @@ export function createMcpServer(): Server {
         {
           name: 'wcag_search',
           description:
-            'Search the WCAG 2.2 specification and techniques using keyword or semantic terms.',
+            'Search the WCAG 2.2 specification, situations, and techniques using keyword or semantic terms.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -247,16 +300,20 @@ export function createMcpServer(): Server {
           throw new McpError(ErrorCode.InvalidParams, `Criterion not found: ${id}`);
         }
 
-        const includeTechs = Boolean(args.includeTechniques);
+        const situation = normalizeSituationLetter(args.situation as string);
+        const includeTechs = Boolean(args.includeTechniques) || Boolean(situation);
         const techFilter = (args.techFilter as string[]) || undefined;
         const techs = includeTechs
-          ? db.getTechniquesForCriterion(sc.num, { tech: techFilter })
+          ? db.getTechniquesForCriterion(sc.num, { tech: techFilter, situation })
           : undefined;
+        const situations = situation || includeTechs ? db.getSituations(sc.num) : undefined;
         const fields = (args.fields as string[]) || undefined;
 
         if (format === 'json') {
           const payload = {
             ...sc,
+            selectedSituation: situation,
+            situationsList: situations,
             techniquesList: techs,
           };
           return {
@@ -271,11 +328,49 @@ export function createMcpServer(): Server {
               text: formatCriterionMarkdown(sc, {
                 fields,
                 includeTechniques: includeTechs,
+                situation,
                 techFilter,
                 techniques: techs,
+                situations,
               }),
             },
           ],
+        };
+      }
+
+      case 'wcag_list_situations': {
+        const id = args.id as string | undefined;
+        const sc = id ? db.getCriterion(id) : undefined;
+        const situations = db.getSituations(id, args.search as string);
+
+        if (format === 'json') {
+          return {
+            content: [{ type: 'text', text: formatJsonOutput(situations) }],
+          };
+        }
+        return {
+          content: [{ type: 'text', text: formatSituationsListMarkdown(situations, sc) }],
+        };
+      }
+
+      case 'wcag_get_situation': {
+        const critId = args.criterionId as string;
+        const letter = args.letter as string;
+        const sit = db.getSituation(critId, letter);
+        if (!sit) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Situation "${letter}" for criterion "${critId}" not found.`
+          );
+        }
+
+        if (format === 'json') {
+          return {
+            content: [{ type: 'text', text: formatJsonOutput(sit) }],
+          };
+        }
+        return {
+          content: [{ type: 'text', text: formatSituationMarkdown(sit) }],
         };
       }
 

@@ -2,7 +2,7 @@ export const WCAG_SCHEMAS = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   title: 'WCAG CLI Schema and Introspection Reference',
   description: 'Machine-readable schema describing WCAG CLI commands, data models, and filters for AI agents.',
-  version: '1.0.0',
+  version: '1.1.0',
   allowedValues: {
     levels: ['A', 'AA', 'AAA'],
     versions: ['2.0', '2.1', '2.2'],
@@ -47,9 +47,30 @@ export const WCAG_SCHEMAS = {
         '<id>': 'Criterion or guideline ID (e.g. 1.4.3, contrast-minimum, 1.4)',
       },
       options: {
+        '-s, --situation <letter>': 'Filter techniques strictly to a specific conditional situation (e.g. A, B, F)',
         '-t, --techniques': 'Include sufficient, advisory, and failure techniques',
         '--tech <technologies>': 'Filter techniques by technology (comma-separated, e.g. html,aria)',
         '--fields <fields>': 'Comma-separated field projection (e.g. num,handle,title,details)',
+        '--output <format>': 'Output format (markdown, json, ndjson)',
+      },
+    },
+    situations: {
+      description: 'List or search conditional implementation scenarios (decision tree) for criteria.',
+      arguments: {
+        '[id]': 'Optional criterion ID to list situations for (e.g. 1.1.1 or 1.4.3)',
+      },
+      options: {
+        '--search <query>': 'Search across situation condition titles (e.g. "chart", "captcha", "decoration")',
+        '--output <format>': 'Output format (markdown, json, ndjson)',
+      },
+    },
+    situation: {
+      description: 'Get details and techniques for a specific criterion situation (e.g. 1.1.1 A).',
+      arguments: {
+        '<criterionId>': 'Criterion ID or number (e.g. 1.1.1, 1.4.3)',
+        '<letter>': 'Situation letter (e.g. A, B, C, F)',
+      },
+      options: {
         '--output <format>': 'Output format (markdown, json, ndjson)',
       },
     },
@@ -72,7 +93,7 @@ export const WCAG_SCHEMAS = {
       },
     },
     search: {
-      description: 'Perform ranked keyword search across criteria, normative text, and techniques.',
+      description: 'Perform ranked keyword search across criteria, situations, and techniques.',
       arguments: {
         '<query>': 'Search terms (e.g. "color contrast", "focus visible", "drag")',
       },
@@ -97,6 +118,17 @@ export const WCAG_SCHEMAS = {
     },
   },
   models: {
+    Situation: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Unique situation ID (e.g. 1.1.1-A)' },
+        letter: { type: 'string', description: 'Situation letter (e.g. A, B, C)' },
+        title: { type: 'string', description: 'Conditional description of this UI scenario' },
+        criterionNum: { type: 'string', description: 'Parent criterion number (e.g. 1.1.1)' },
+        criterionHandle: { type: 'string', description: 'Parent criterion handle' },
+        techniques: { type: 'array', description: 'Techniques specifically satisfying this situation' },
+      },
+    },
     SuccessCriterion: {
       type: 'object',
       properties: {
@@ -118,6 +150,7 @@ export const WCAG_SCHEMAS = {
         technology: { type: 'string', description: 'Target technology (html, css, aria, etc.)' },
         type: { type: 'string', enum: ['sufficient', 'advisory', 'failure'] },
         criterionNum: { type: 'string', description: 'Associated criterion number' },
+        situationLetter: { type: 'string', description: 'Associated situation letter if conditional' },
         url: { type: 'string', description: 'Official W3C Technique URL' },
       },
     },

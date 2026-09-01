@@ -8,6 +8,7 @@ import type {
   Guideline,
   SuccessCriterion,
   FlatTechnique,
+  Situation,
   SearchResult,
   ConformanceLevel,
   TechniqueItem,
@@ -15,10 +16,15 @@ import type {
 import {
   normalizeCriterionId,
   normalizeTechniqueId,
+  normalizeSituationLetter,
   sanitizeQuery,
   normalizeLevel,
   normalizeVersion,
 } from './harden.js';
+
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+}
 
 export class WCAGDatabase {
   private dataset: WCAGDataset;
@@ -26,6 +32,7 @@ export class WCAGDatabase {
   private guidelines: Guideline[] = [];
   private criteria: SuccessCriterion[] = [];
   private techniques: FlatTechnique[] = [];
+  private situations: Situation[] = [];
 
   private principleByNum = new Map<string, Principle>();
   private principleById = new Map<string, Principle>();
@@ -34,6 +41,8 @@ export class WCAGDatabase {
   private criterionByNum = new Map<string, SuccessCriterion>();
   private criterionById = new Map<string, SuccessCriterion>();
   private techniqueById = new Map<string, FlatTechnique[]>();
+  private situationsByCriterion = new Map<string, Situation[]>();
+  private situationById = new Map<string, Situation>();
 
   constructor(customData?: WCAGDataset) {
     if (customData) {
@@ -88,6 +97,7 @@ export class WCAGDatabase {
     this.guidelines = [];
     this.criteria = [];
     this.techniques = [];
+    this.situations = [];
 
     this.principleByNum.clear();
     this.principleById.clear();
@@ -96,27 +106,39 @@ export class WCAGDatabase {
     this.criterionByNum.clear();
     this.criterionById.clear();
     this.techniqueById.clear();
+    this.situationsByCriterion.clear();
+    this.situationById.clear();
 
     const extractFlatTechs = (
       item: any,
       type: 'sufficient' | 'advisory' | 'failure',
       sc: SuccessCriterion,
-      currentSituation = ''
+      currentSituation = '',
+      currentSituationLetter?: string
     ) => {
       if (!item || typeof item !== 'object') return;
 
       const sit =
-        item.title && (item.techniques || item.groups) ? item.title : currentSituation;
+        item.title && (item.techniques || item.groups) ? stripHtml(item.title) : currentSituation;
+
+      let sitLetter = currentSituationLetter;
+      if (item.title && (item.techniques || item.groups)) {
+        const match = sit.match(/Situation\s+([A-Za-z0-9]+):\s*(.*)/i);
+        if (match) {
+          sitLetter = match[1].toUpperCase();
+        }
+      }
 
       if (item.id && typeof item.id === 'string' && item.id.trim()) {
         const id = item.id.trim();
         const techObj: FlatTechnique = {
           id,
-          title: item.title || '',
+          title: item.title ? stripHtml(item.title) : '',
           technology: item.technology || (type === 'failure' ? 'failures' : 'general'),
           type,
           criterionNum: sc.num,
           criterionHandle: sc.handle,
+          situationLetter: sitLetter,
           situationTitle: sit || undefined,
           url: `https://www.w3.org/WAI/WCAG22/Techniques/${item.technology || (type === 'failure' ? 'failures' : 'general')}/${id}`,
         };
@@ -130,17 +152,17 @@ export class WCAGDatabase {
 
       if (Array.isArray(item.techniques)) {
         for (const sub of item.techniques) {
-          extractFlatTechs(sub, type, sc, sit);
+          extractFlatTechs(sub, type, sc, sit, sitLetter);
         }
       }
       if (Array.isArray(item.groups)) {
         for (const grp of item.groups) {
-          extractFlatTechs(grp, type, sc, sit);
+          extractFlatTechs(grp, type, sc, sit, sitLetter);
         }
       }
       if (Array.isArray(item.and)) {
         for (const a of item.and) {
-          extractFlatTechs(a, type, sc, sit);
+          extractFlatTechs(a, type, sc, sit, sitLetter);
         }
       }
     };
@@ -185,12 +207,73 @@ export class WCAGDatabase {
             }
           }
 
+          // Extract Techniques & Situations
           const techs = sc.techniques || {};
+          const scSituations: Situation[] = [];
+
           for (const type of ['sufficient', 'advisory', 'failure'] as const) {
             const list = techs[type] || [];
             for (const item of list) {
+              if (
+                type === 'sufficient' &&
+                item &&
+                typeof item === 'object' &&
+                item.title &&
+                (item.techniques || item.groups)
+              ) {
+                const rawClean = stripHtml(item.title);
+                const match = rawClean.match(/Situation\s+([A-Za-z0-9]+):\s*(.*)/i);
+                const letter = match ? match[1].toUpperCase() : String.fromCharCode(65 + scSituations.length);
+                const desc = match ? match[2].trim() : rawClean;
+
+                const situationTechs: FlatTechnique[] = [];
+                const collectSituationTechs = (subItem: any) => {
+                  if (!subItem || typeof subItem !== 'object') return;
+                  if (subItem.id && typeof subItem.id === 'string' && subItem.id.trim()) {
+                    situationTechs.push({
+                      id: subItem.id.trim(),
+                      title: subItem.title ? stripHtml(subItem.title) : '',
+                      technology: subItem.technology || 'general',
+                      type: 'sufficient',
+                      criterionNum: sc.num,
+                      criterionHandle: sc.handle,
+                      situationLetter: letter,
+                      situationTitle: rawClean,
+                      url: `https://www.w3.org/WAI/WCAG22/Techniques/${subItem.technology || 'general'}/${subItem.id.trim()}`,
+                    });
+                  }
+                  if (Array.isArray(subItem.techniques)) {
+                    for (const t of subItem.techniques) collectSituationTechs(t);
+                  }
+                  if (Array.isArray(subItem.groups)) {
+                    for (const grp of subItem.groups) collectSituationTechs(grp);
+                  }
+                  if (Array.isArray(subItem.and)) {
+                    for (const a of subItem.and) collectSituationTechs(a);
+                  }
+                };
+
+                collectSituationTechs(item);
+
+                const situationObj: Situation = {
+                  id: `${sc.num}-${letter}`,
+                  letter,
+                  title: desc,
+                  criterionNum: sc.num,
+                  criterionHandle: sc.handle,
+                  techniques: situationTechs,
+                };
+                scSituations.push(situationObj);
+                this.situations.push(situationObj);
+                this.situationById.set(situationObj.id.toLowerCase(), situationObj);
+              }
+
               extractFlatTechs(item, type, sc);
             }
+          }
+
+          if (scSituations.length > 0) {
+            this.situationsByCriterion.set(sc.num, scSituations);
           }
         }
       }
@@ -273,6 +356,38 @@ export class WCAGDatabase {
     return this.criterionByNum.get(clean) || this.criterionById.get(clean.toLowerCase());
   }
 
+  public getSituations(criterionIdOrNum?: string, search?: string): Situation[] {
+    let list = this.situations;
+
+    if (criterionIdOrNum) {
+      const sc = this.getCriterion(criterionIdOrNum);
+      if (sc) {
+        list = this.situationsByCriterion.get(sc.num) || [];
+      } else {
+        return [];
+      }
+    }
+
+    if (search) {
+      const cleanSearch = sanitizeQuery(search).toLowerCase();
+      const terms = cleanSearch.split(/\s+/).filter(Boolean);
+      list = list.filter((sit) => {
+        const text = `${sit.title} ${sit.criterionNum} ${sit.criterionHandle}`.toLowerCase();
+        return terms.every((t) => text.includes(t));
+      });
+    }
+
+    return list;
+  }
+
+  public getSituation(criterionIdOrNum: string, letter: string): Situation | undefined {
+    const sc = this.getCriterion(criterionIdOrNum);
+    if (!sc) return undefined;
+    const cleanLetter = normalizeSituationLetter(letter);
+    if (!cleanLetter) return undefined;
+    return this.situationById.get(`${sc.num}-${cleanLetter}`.toLowerCase());
+  }
+
   public getTechnique(id: string): FlatTechnique[] {
     const norm = normalizeTechniqueId(id);
     return this.techniqueById.get(norm) || [];
@@ -288,15 +403,32 @@ export class WCAGDatabase {
 
   public getTechniquesForCriterion(
     idOrNum: string,
-    options?: { type?: 'sufficient' | 'advisory' | 'failure'; tech?: string[] }
+    options?: {
+      type?: 'sufficient' | 'advisory' | 'failure';
+      situation?: string;
+      tech?: string[];
+    }
   ): FlatTechnique[] {
     const sc = this.getCriterion(idOrNum);
     if (!sc) return [];
 
     let list = this.techniques.filter((t) => t.criterionNum === sc.num);
+
     if (options?.type) {
       list = list.filter((t) => t.type === options.type);
     }
+
+    if (options?.situation) {
+      const sitLetter = normalizeSituationLetter(options.situation);
+      if (sitLetter) {
+        list = list.filter(
+          (t) =>
+            t.type !== 'sufficient' ||
+            (t.situationLetter && t.situationLetter.toUpperCase() === sitLetter)
+        );
+      }
+    }
+
     if (options?.tech && options.tech.length > 0) {
       const allowedTechs = options.tech.map((t) => t.toLowerCase().trim());
       list = list.filter((t) => t.technology && allowedTechs.includes(t.technology.toLowerCase()));
@@ -404,7 +536,31 @@ export class WCAGDatabase {
       }
     }
 
-    // 2. Search Techniques
+    // 2. Search Situations
+    for (const sit of this.situations) {
+      let score = 0;
+      const sitTitleLower = sit.title.toLowerCase();
+      for (const t of terms) {
+        if (sitTitleLower.includes(t)) {
+          score += 20;
+        }
+      }
+
+      if (score > 0) {
+        results.push({
+          type: 'situation',
+          id: sit.id,
+          num: sit.criterionNum,
+          handle: `Situation ${sit.letter} (${sit.criterionNum} ${sit.criterionHandle})`,
+          title: sit.title,
+          score,
+          matchedField: 'situation description',
+          snippet: `[SC ${sit.criterionNum} Situation ${sit.letter}] ${sit.title}`,
+        });
+      }
+    }
+
+    // 3. Search Techniques
     for (const tech of this.techniques) {
       let score = 0;
       const idLower = tech.id.toLowerCase();

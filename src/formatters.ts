@@ -3,6 +3,7 @@ import type {
   Guideline,
   SuccessCriterion,
   FlatTechnique,
+  Situation,
   SearchResult,
   FormatOptions,
 } from './types.js';
@@ -58,8 +59,10 @@ export function formatCriterionMarkdown(
   options?: {
     fields?: string[];
     includeTechniques?: boolean;
+    situation?: string;
     techFilter?: string[];
     techniques?: FlatTechnique[];
+    situations?: Situation[];
   }
 ): string {
   const lines: string[] = [];
@@ -96,7 +99,22 @@ export function formatCriterionMarkdown(
     lines.push('');
   }
 
-  if (options?.includeTechniques && options.techniques) {
+  if (options?.situation && options.situations) {
+    const sit = options.situations.find(
+      (s) => s.letter.toUpperCase() === options.situation?.toUpperCase()
+    );
+    if (sit) {
+      lines.push(`### Situation ${sit.letter}: ${sit.title}`);
+      lines.push(`*Techniques specifically applying to this scenario:*\n`);
+      for (const t of sit.techniques) {
+        if (!options.techFilter || (t.technology && options.techFilter.includes(t.technology.toLowerCase()))) {
+          const techTag = t.technology ? ` \`[${t.technology}]\`` : '';
+          lines.push(`- \`${t.id}\`${techTag}: ${t.title}`);
+        }
+      }
+      lines.push('');
+    }
+  } else if (options?.includeTechniques && options.techniques) {
     const sufficient = options.techniques.filter((t) => t.type === 'sufficient');
     const advisory = options.techniques.filter((t) => t.type === 'advisory');
     const failures = options.techniques.filter((t) => t.type === 'failure');
@@ -105,7 +123,8 @@ export function formatCriterionMarkdown(
       lines.push(`### Sufficient Techniques (${sufficient.length})`);
       for (const t of sufficient) {
         const techTag = t.technology ? ` \`[${t.technology}]\`` : '';
-        lines.push(`- \`${t.id}\`${techTag}: ${t.title}`);
+        const sitTag = t.situationLetter ? ` *(Situation ${t.situationLetter})*` : '';
+        lines.push(`- \`${t.id}\`${techTag}: ${t.title}${sitTag}`);
       }
       lines.push('');
     }
@@ -125,6 +144,53 @@ export function formatCriterionMarkdown(
         lines.push(`- \`${t.id}\`: ${t.title}`);
       }
       lines.push('');
+    }
+  }
+
+  return lines.join('\n');
+}
+
+export function formatSituationsListMarkdown(situations: Situation[], sc?: SuccessCriterion): string {
+  if (situations.length === 0) {
+    return sc
+      ? `## Situations for SC ${sc.num}: ${sc.handle}\n\n*No conditional situations documented for this criterion. All sufficient techniques apply universally.*`
+      : `# WCAG 2.2 Situations\n\n*No situations found.*`;
+  }
+
+  const lines: string[] = [];
+  if (sc) {
+    lines.push(`## Situations (Decision Tree) for SC ${sc.num}: ${sc.handle}\n`);
+    lines.push(`> Identify which scenario matches your UI element, then query \`wcag get ${sc.num} --situation <Letter>\` to get targeted techniques.\n`);
+  } else {
+    lines.push(`# WCAG 2.2 Situations (${situations.length} total)\n`);
+  }
+
+  for (const sit of situations) {
+    const techCount = sit.techniques.length;
+    const prefix = sc ? `### Situation ${sit.letter}` : `### [SC ${sit.criterionNum}] Situation ${sit.letter}`;
+    lines.push(`${prefix}: ${sit.title}`);
+    lines.push(`- **Techniques Available**: ${techCount} (\`wcag situation ${sit.criterionNum} ${sit.letter}\`)\n`);
+  }
+
+  return lines.join('\n');
+}
+
+export function formatSituationMarkdown(sit: Situation): string {
+  const lines: string[] = [
+    `## SC ${sit.criterionNum} (${sit.criterionHandle}) - Situation ${sit.letter}\n`,
+    `**Condition**: ${sit.title}\n`,
+    `### Sufficient Techniques for this Situation (${sit.techniques.length}):\n`,
+  ];
+
+  if (sit.techniques.length === 0) {
+    lines.push('*No specific technique references listed.*');
+  } else {
+    for (const t of sit.techniques) {
+      const techTag = t.technology ? ` \`[${t.technology}]\`` : '';
+      lines.push(`- **\`${t.id}\`**${techTag}: ${t.title}`);
+      if (t.url) {
+        lines.push(`  *Reference*: ${t.url}`);
+      }
     }
   }
 
@@ -182,6 +248,10 @@ export function formatSearchMarkdown(results: SearchResult[]): string {
   for (const r of results) {
     if (r.type === 'criterion') {
       lines.push(`### SC ${r.num}: ${r.handle} (Level ${r.level || 'A'})`);
+      lines.push(`*Matched in ${r.matchedField} (Score: ${r.score})*`);
+      lines.push(`${r.snippet}\n`);
+    } else if (r.type === 'situation') {
+      lines.push(`### ${r.handle}`);
       lines.push(`*Matched in ${r.matchedField} (Score: ${r.score})*`);
       lines.push(`${r.snippet}\n`);
     } else if (r.type === 'technique') {

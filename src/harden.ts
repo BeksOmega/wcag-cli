@@ -91,6 +91,22 @@ export function normalizeTechniqueId(raw: string): string {
 }
 
 /**
+ * Normalizes situation letter identifiers (e.g. "A", "situation-a", "sit:A", "a.").
+ */
+export function normalizeSituationLetter(raw?: string): string | undefined {
+  if (!raw || typeof raw !== 'string') return undefined;
+
+  let cleaned = raw.trim().replace(/[\x00-\x1F\x7F]/g, '');
+  cleaned = cleaned.replace(/^(?:situation|sit)[-:\s]*/i, '');
+  cleaned = cleaned.replace(/[.\-_]+$/, '').trim();
+
+  if (/^[a-zA-Z]$/.test(cleaned)) {
+    return cleaned.toUpperCase();
+  }
+  return undefined;
+}
+
+/**
  * Sanitizes search query string.
  */
 export function sanitizeQuery(raw: string): string {
