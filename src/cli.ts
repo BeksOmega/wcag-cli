@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { Command } from 'commander';
 import { getDatabase, WCAGDatabase } from './db.js';
 import {
@@ -321,6 +323,26 @@ export function main(): void {
   program.parse(process.argv);
 }
 
-if (process.argv[1] && (process.argv[1].endsWith('cli.js') || process.argv[1].endsWith('cli.ts'))) {
+function isEntrypoint(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    const scriptPath = fileURLToPath(import.meta.url);
+    const realArg = realpathSync(process.argv[1]);
+    if (realArg === scriptPath) return true;
+  } catch {
+    // fallback
+  }
+  const arg = process.argv[1];
+  return (
+    arg.endsWith('cli.js') ||
+    arg.endsWith('cli.ts') ||
+    arg.endsWith('/wcag') ||
+    arg.endsWith('\\wcag') ||
+    arg.endsWith('/wcag-cli') ||
+    arg.endsWith('\\wcag-cli')
+  );
+}
+
+if (isEntrypoint()) {
   main();
 }
