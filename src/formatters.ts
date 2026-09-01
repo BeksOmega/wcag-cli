@@ -48,7 +48,15 @@ export function formatCriteriaListMarkdown(criteria: SuccessCriterion[], fields?
   const lines: string[] = [`# WCAG 2.2 Success Criteria (${criteria.length} items)\n`];
 
   for (const sc of criteria) {
-    lines.push(`- **SC ${sc.num} ${sc.handle}** (Level ${sc.level}) - ${sc.title}`);
+    if (fields && fields.length > 0) {
+      const masked = applyFieldMask(sc, fields);
+      const parts = Object.entries(masked)
+        .filter(([_, v]) => v !== undefined && typeof v !== 'object')
+        .map(([k, v]) => `**${k}**: ${v}`);
+      lines.push(`- ${parts.length > 0 ? parts.join(' | ') : `**SC ${sc.num}**`}`);
+    } else {
+      lines.push(`- **SC ${sc.num} ${sc.handle}** (Level ${sc.level}) - ${sc.title}`);
+    }
   }
 
   return lines.join('\n');

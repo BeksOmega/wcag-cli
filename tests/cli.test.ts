@@ -33,6 +33,19 @@ describe('CLI In-Process Integration Tests', () => {
     expect(parsed.map((p: any) => p.num)).toEqual(['1', '2', '3', '4']);
   });
 
+  it('runs "wcag tree --level AAA --output json" and filters criteria by level', async () => {
+    const out = await run(['tree', '--level', 'AAA', '--output', 'json']);
+    const parsed = JSON.parse(out);
+    expect(Array.isArray(parsed)).toBe(true);
+    for (const p of parsed) {
+      for (const g of p.guidelines) {
+        for (const sc of g.successcriteria) {
+          expect(sc.level).toBe('AAA');
+        }
+      }
+    }
+  });
+
   it('runs "wcag list" with filters and fields projection', async () => {
     const outJson = await run(['list', '--level', 'AA', '--fields', 'num,handle,level', '--output', 'json']);
     const parsed = JSON.parse(outJson);
@@ -42,6 +55,9 @@ describe('CLI In-Process Integration Tests', () => {
       expect(Object.keys(item)).toEqual(['num', 'handle', 'level']);
       expect(item.level).toBe('AA');
     }
+
+    const outMd = await run(['list', '--level', 'AAA', '--fields', 'num,handle']);
+    expect(outMd).toContain('**num**: 1.2.6 | **handle**: Sign Language (Prerecorded)');
   });
 
   it('runs "wcag list --guideline 1.4 --level AA" and returns exact criteria', async () => {

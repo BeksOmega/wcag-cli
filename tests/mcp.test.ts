@@ -98,4 +98,54 @@ describe('MCP Server Integration Tests', () => {
     expect(parsed.length).toBeGreaterThan(0);
     expect(parsed[0].num).toBe('2.5.7');
   });
+
+  it('executes "wcag_tree" with level filter', async () => {
+    const handler = (server as any)._requestHandlers.get(CallToolRequestSchema.shape.method.value);
+    const res = await handler({
+      method: 'tools/call',
+      params: {
+        name: 'wcag_tree',
+        arguments: { level: 'AAA', format: 'json' },
+      },
+    });
+
+    expect(res.content).toHaveLength(1);
+    const parsed = JSON.parse(res.content[0].text);
+    expect(Array.isArray(parsed)).toBe(true);
+    for (const p of parsed) {
+      for (const g of p.guidelines) {
+        for (const sc of g.successcriteria) {
+          expect(sc.level).toBe('AAA');
+        }
+      }
+    }
+  });
+
+  it('returns isError: true for invalid criterion lookup', async () => {
+    const handler = (server as any)._requestHandlers.get(CallToolRequestSchema.shape.method.value);
+    const res = await handler({
+      method: 'tools/call',
+      params: {
+        name: 'wcag_get_criterion',
+        arguments: { id: '9.9.9' },
+      },
+    });
+
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain('Criterion not found: "9.9.9"');
+  });
+
+  it('returns isError: true for invalid situation lookup', async () => {
+    const handler = (server as any)._requestHandlers.get(CallToolRequestSchema.shape.method.value);
+    const res = await handler({
+      method: 'tools/call',
+      params: {
+        name: 'wcag_get_situation',
+        arguments: { criterionId: '1.1.1', letter: 'Z' },
+      },
+    });
+
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain('Situation "Z" for criterion "1.1.1" not found');
+  });
 });

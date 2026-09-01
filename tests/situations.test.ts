@@ -9,9 +9,9 @@ describe('First-Class WCAG Situations', () => {
     db = getDatabase();
   });
 
-  it('indexes all 52 situations across the WCAG dataset', () => {
+  it('indexes all 47 situations across the WCAG dataset', () => {
     const allSituations = db.getSituations();
-    expect(allSituations).toHaveLength(52);
+    expect(allSituations).toHaveLength(47);
   });
 
   it('retrieves Situations A through F for SC 1.1.1 Non-text Content', () => {
@@ -81,7 +81,7 @@ describe('First-Class WCAG Situations', () => {
     expect(out).toContain('Situation F');
   });
 
-  it('runs CLI "wcag situation 1.1.1 F"', async () => {
+  it('runs CLI "wcag situation 1.1.1 F" and "wcag situations 1.1.1 F"', async () => {
     const logs: string[] = [];
     const program = createProgram();
     program.exitOverride();
@@ -89,12 +89,18 @@ describe('First-Class WCAG Situations', () => {
     console.log = (...m) => logs.push(m.join(' '));
 
     await program.parseAsync(['node', 'wcag', 'situation', '1.1.1', 'F', '--output', 'json']);
+    await program.parseAsync(['node', 'wcag', 'situations', '1.1.1', 'F', '--output', 'json']);
+    await program.parseAsync(['node', 'wcag', 'situations', '1.1.1-F', '--output', 'json']);
     console.log = origLog;
 
-    const parsed = JSON.parse(logs.join('\n'));
-    expect(parsed.letter).toBe('F');
-    expect(parsed.criterionNum).toBe('1.1.1');
-    expect(parsed.techniques.length).toBeGreaterThan(0);
+    const lines = logs.filter(Boolean);
+    expect(lines).toHaveLength(3);
+    for (const line of lines) {
+      const parsed = JSON.parse(line);
+      expect(parsed.letter).toBe('F');
+      expect(parsed.criterionNum).toBe('1.1.1');
+      expect(parsed.techniques.length).toBeGreaterThan(0);
+    }
   });
 
   it('runs CLI "wcag get 1.1.1 --situation F" and targets only Situation F', async () => {

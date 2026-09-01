@@ -19,11 +19,17 @@ import {
   normalizeSituationLetter,
   sanitizeQuery,
   normalizeLevel,
+  resolveCumulativeLevels,
   normalizeVersion,
 } from './harden.js';
 
 function stripHtml(text: string): string {
   return text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function isValidTechniqueId(id: string): boolean {
+  if (!id) return false;
+  return /^(?:ARIA|SCR|FLASH|PDF|SL|SM|SVR|T|C|F|G|H)\d+$/i.test(id.trim());
 }
 
 export class WCAGDatabase {
@@ -118,18 +124,21 @@ export class WCAGDatabase {
     ) => {
       if (!item || typeof item !== 'object') return;
 
-      const sit =
-        item.title && (item.techniques || item.groups) ? stripHtml(item.title) : currentSituation;
-
+      let sit = currentSituation;
       let sitLetter = currentSituationLetter;
-      if (item.title && (item.techniques || item.groups)) {
-        const match = sit.match(/Situation\s+([A-Za-z0-9]+):\s*(.*)/i);
+
+      // Only extract Situation if this is a top-level Situation header (e.g. "Situation A: ...")
+      if (item.title && typeof item.title === 'string' && (item.techniques || item.groups)) {
+        const cleanTitle = stripHtml(item.title);
+        const match = cleanTitle.match(/^Situation\s+([A-Za-z0-9]+):\s*(.*)/i);
         if (match) {
+          sit = cleanTitle;
           sitLetter = match[1].toUpperCase();
         }
       }
 
-      if (item.id && typeof item.id === 'string' && item.id.trim()) {
+      // Only index valid technique IDs (filtering out group container IDs)
+      if (item.id && typeof item.id === 'string' && isValidTechniqueId(item.id)) {
         const id = item.id.trim();
         const techObj: FlatTechnique = {
           id,
@@ -222,50 +231,52 @@ export class WCAGDatabase {
                 (item.techniques || item.groups)
               ) {
                 const rawClean = stripHtml(item.title);
-                const match = rawClean.match(/Situation\s+([A-Za-z0-9]+):\s*(.*)/i);
-                const letter = match ? match[1].toUpperCase() : String.fromCharCode(65 + scSituations.length);
-                const desc = match ? match[2].trim() : rawClean;
+                const match = rawClean.match(/^Situation\s+([A-Za-z0-9]+):\s*(.*)/i);
+                if (match) {
+                  const letter = match[1].toUpperCase();
+                  const desc = match[2].trim();
 
-                const situationTechs: FlatTechnique[] = [];
-                const collectSituationTechs = (subItem: any) => {
-                  if (!subItem || typeof subItem !== 'object') return;
-                  if (subItem.id && typeof subItem.id === 'string' && subItem.id.trim()) {
-                    situationTechs.push({
-                      id: subItem.id.trim(),
-                      title: subItem.title ? stripHtml(subItem.title) : '',
-                      technology: subItem.technology || 'general',
-                      type: 'sufficient',
-                      criterionNum: sc.num,
-                      criterionHandle: sc.handle,
-                      situationLetter: letter,
-                      situationTitle: rawClean,
-                      url: `https://www.w3.org/WAI/WCAG22/Techniques/${subItem.technology || 'general'}/${subItem.id.trim()}`,
-                    });
-                  }
-                  if (Array.isArray(subItem.techniques)) {
-                    for (const t of subItem.techniques) collectSituationTechs(t);
-                  }
-                  if (Array.isArray(subItem.groups)) {
-                    for (const grp of subItem.groups) collectSituationTechs(grp);
-                  }
-                  if (Array.isArray(subItem.and)) {
-                    for (const a of subItem.and) collectSituationTechs(a);
-                  }
-                };
+                  const situationTechs: FlatTechnique[] = [];
+                  const collectSituationTechs = (subItem: any) => {
+                    if (!subItem || typeof subItem !== 'object') return;
+                    if (subItem.id && typeof subItem.id === 'string' && isValidTechniqueId(subItem.id)) {
+                      situationTechs.push({
+                        id: subItem.id.trim(),
+                        title: subItem.title ? stripHtml(subItem.title) : '',
+                        technology: subItem.technology || 'general',
+                        type: 'sufficient',
+                        criterionNum: sc.num,
+                        criterionHandle: sc.handle,
+                        situationLetter: letter,
+                        situationTitle: rawClean,
+                        url: `https://www.w3.org/WAI/WCAG22/Techniques/${subItem.technology || 'general'}/${subItem.id.trim()}`,
+                      });
+                    }
+                    if (Array.isArray(subItem.techniques)) {
+                      for (const t of subItem.techniques) collectSituationTechs(t);
+                    }
+                    if (Array.isArray(subItem.groups)) {
+                      for (const grp of subItem.groups) collectSituationTechs(grp);
+                    }
+                    if (Array.isArray(subItem.and)) {
+                      for (const a of subItem.and) collectSituationTechs(a);
+                    }
+                  };
 
-                collectSituationTechs(item);
+                  collectSituationTechs(item);
 
-                const situationObj: Situation = {
-                  id: `${sc.num}-${letter}`,
-                  letter,
-                  title: desc,
-                  criterionNum: sc.num,
-                  criterionHandle: sc.handle,
-                  techniques: situationTechs,
-                };
-                scSituations.push(situationObj);
-                this.situations.push(situationObj);
-                this.situationById.set(situationObj.id.toLowerCase(), situationObj);
+                  const situationObj: Situation = {
+                    id: `${sc.num}-${letter}`,
+                    letter,
+                    title: desc,
+                    criterionNum: sc.num,
+                    criterionHandle: sc.handle,
+                    techniques: situationTechs,
+                  };
+                  scSituations.push(situationObj);
+                  this.situations.push(situationObj);
+                  this.situationById.set(situationObj.id.toLowerCase(), situationObj);
+                }
               }
 
               extractFlatTechs(item, type, sc);
@@ -280,10 +291,34 @@ export class WCAGDatabase {
     }
   }
 
-  public getPrinciples(version?: string): Principle[] {
-    const v = normalizeVersion(version);
-    if (!v) return this.principles;
-    return this.principles.filter((p) => !p.versions || p.versions.includes(v));
+  public getPrinciples(options?: { level?: ConformanceLevel[] | string; version?: string }): Principle[] {
+    let result = this.principles;
+    const v = normalizeVersion(options?.version);
+    if (v) {
+      result = result.filter((p) => !p.versions || p.versions.includes(v));
+    }
+
+    if (options?.level) {
+      const levels = Array.isArray(options.level)
+        ? options.level
+        : normalizeLevel(options.level);
+
+      if (levels.length > 0) {
+        result = result
+          .map((p) => ({
+            ...p,
+            guidelines: p.guidelines
+              .map((g) => ({
+                ...g,
+                successcriteria: g.successcriteria.filter((sc) => levels.includes(sc.level)),
+              }))
+              .filter((g) => g.successcriteria.length > 0),
+          }))
+          .filter((p) => p.guidelines.length > 0);
+      }
+    }
+
+    return result;
   }
 
   public getPrinciple(idOrNum: string): Principle | undefined {
@@ -311,15 +346,22 @@ export class WCAGDatabase {
 
   public getCriteria(options?: {
     level?: ConformanceLevel[] | string;
+    conformance?: string;
+    exactLevel?: boolean;
     guideline?: string;
     principle?: string;
     version?: string;
   }): SuccessCriterion[] {
     let result = this.criteria;
 
-    const levels = Array.isArray(options?.level)
-      ? options?.level
-      : normalizeLevel(options?.level);
+    let levels: ConformanceLevel[] = [];
+    if (options?.conformance) {
+      levels = resolveCumulativeLevels(options.conformance, false);
+    } else if (options?.level) {
+      levels = Array.isArray(options.level)
+        ? options.level
+        : normalizeLevel(options.level);
+    }
 
     if (levels.length > 0) {
       result = result.filter((sc) => levels.includes(sc.level));
@@ -440,6 +482,7 @@ export class WCAGDatabase {
     rawQuery: string,
     options?: {
       level?: ConformanceLevel[] | string;
+      conformance?: string;
       version?: string;
       limit?: number;
     }
@@ -450,9 +493,15 @@ export class WCAGDatabase {
     const terms = query.split(/\s+/).filter(Boolean);
     const results: SearchResult[] = [];
 
-    const levels = Array.isArray(options?.level)
-      ? options?.level
-      : normalizeLevel(options?.level);
+    let levels: ConformanceLevel[] = [];
+    if (options?.conformance) {
+      levels = resolveCumulativeLevels(options.conformance, false);
+    } else if (options?.level) {
+      levels = Array.isArray(options.level)
+        ? options.level
+        : normalizeLevel(options.level);
+    }
+
     const limit = options?.limit ?? 5;
     const version = normalizeVersion(options?.version);
 
@@ -496,7 +545,13 @@ export class WCAGDatabase {
         // Match against details / exceptions
         if (sc.details) {
           for (const d of sc.details) {
-            const detailText = (d.text || '') + (d.items ? d.items.map((i) => i.handle + ' ' + i.text).join(' ') : '');
+            const detailText =
+              (d.text || '') +
+              (d.items
+                ? d.items
+                    .map((i) => (i.handle ? i.handle + ' ' : '') + (i.text || ''))
+                    .join(' ')
+                : '');
             const detailLower = detailText.toLowerCase();
             for (const t of terms) {
               if (detailLower.includes(t)) {

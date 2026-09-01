@@ -2,13 +2,6 @@ import type { ConformanceLevel } from './types.js';
 
 /**
  * Normalizes and sanitizes a success criterion or guideline identifier against agent hallucinations.
- * Examples:
- * - "1.4.3." -> "1.4.3"
- * - "1-4-3" -> "1.4.3"
- * - "SC 1.4.3" -> "1.4.3"
- * - "1.4.3?fields=title" -> "1.4.3"
- * - "%201.4.3" -> "1.4.3"
- * - "contrast-minimum" -> "contrast-minimum"
  */
 export function normalizeCriterionId(raw: string): string {
   if (!raw || typeof raw !== 'string') {
@@ -29,13 +22,13 @@ export function normalizeCriterionId(raw: string): string {
   // Strip control characters (< 0x20)
   cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
 
-  // Strip embedded query strings, hashes, or path segments (e.g. "1.4.3?fields=title" or "1.4.3#note")
+  // Strip embedded query strings, hashes, or path segments
   cleaned = cleaned.split(/[?#]/)[0].trim();
 
   // Strip path traversal attempts
   cleaned = cleaned.replace(/\.\.+[/\\]/g, '');
 
-  // Strip common prefixes like "sc:", "sc-", "sc ", "criterion:", "guideline:"
+  // Strip common prefixes
   cleaned = cleaned.replace(/^(?:sc|criterion|guideline|g)[-:\s]+/i, '');
 
   // Match dotted numeric criterion numbers like "1.4.3" or hyphenated "1-4-3" or "1_4_3"
@@ -48,7 +41,7 @@ export function normalizeCriterionId(raw: string): string {
     return `${p}.${g}`;
   }
 
-  // Normalize slug / handle (e.g. "Contrast Minimum" -> "contrast-minimum")
+  // Normalize slug / handle
   cleaned = cleaned
     .toLowerCase()
     .replace(/[^\w.-]/g, '-')
@@ -156,6 +149,26 @@ export function normalizeLevel(raw?: string | string[]): ConformanceLevel[] {
   }
 
   return Array.from(levels);
+}
+
+/**
+ * Resolves cumulative WCAG conformance target levels.
+ * e.g., "AA" target resolves to ["A", "AA"] (since conforming to AA requires passing A).
+ * "AAA" target resolves to ["A", "AA", "AAA"].
+ */
+export function resolveCumulativeLevels(raw?: string | string[], exact = false): ConformanceLevel[] {
+  if (!raw) return [];
+  const normalized = normalizeLevel(raw);
+  if (exact || normalized.length > 1) {
+    return normalized;
+  }
+  if (normalized.length === 1) {
+    const single = normalized[0];
+    if (single === 'AA') return ['A', 'AA'];
+    if (single === 'AAA') return ['A', 'AA', 'AAA'];
+    return ['A'];
+  }
+  return [];
 }
 
 /**

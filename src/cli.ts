@@ -40,7 +40,7 @@ export function createProgram(db: WCAGDatabase = getDatabase()): Command {
   program
     .name('wcag')
     .description('Token-efficient WCAG 2.2 exploration CLI and MCP server for AI agents and developers')
-    .version('0.1.0');
+    .version('0.1.0', '-V, --cli-version', 'output the version of wcag-cli');
 
   // Command: tree
   program
@@ -51,7 +51,7 @@ export function createProgram(db: WCAGDatabase = getDatabase()): Command {
     .option('-o, --output <format>', 'Output format: markdown, json, ndjson')
     .action((options) => {
       const format = resolveOutputFormat(options.output);
-      const principles = db.getPrinciples(options.version);
+      const principles = db.getPrinciples({ level: options.level, version: options.version });
 
       if (format === 'json' || format === 'ndjson') {
         console.log(formatJsonOutput(principles, undefined, format === 'ndjson'));
@@ -68,7 +68,7 @@ export function createProgram(db: WCAGDatabase = getDatabase()): Command {
     .option('--guideline <guideline>', 'Filter by guideline number or handle (e.g. 1.4 or distinguishable)')
     .option('--principle <principle>', 'Filter by principle number or handle (e.g. 1 or perceivable)')
     .option('--version <version>', 'Filter by WCAG version (2.0, 2.1, 2.2)')
-    .option('--fields <fields>', 'Comma-separated field projection (e.g. id,num,title,level)')
+    .option('--fields <fields>', 'Field projection (comma-separated, e.g. num,handle,title,level)')
     .option('-o, --output <format>', 'Output format: markdown, json, ndjson')
     .action((options) => {
       const format = resolveOutputFormat(options.output);
@@ -154,14 +154,47 @@ export function createProgram(db: WCAGDatabase = getDatabase()): Command {
       process.exitCode = 1;
     });
 
-  // Command: situations
+  // Command: situations (and alias: situation)
   program
-    .command('situations [id]')
-    .description('List conditional implementation scenarios (decision tree) for criteria')
+    .command('situations [id] [letter]')
+    .alias('situation')
+    .description('List or get conditional implementation scenarios (decision tree) for criteria')
     .option('--search <query>', 'Search across situation condition titles (e.g. "chart", "captcha", "decoration")')
     .option('-o, --output <format>', 'Output format: markdown, json, ndjson')
-    .action((id, options) => {
+    .action((id, letter, options) => {
       const format = resolveOutputFormat(options.output);
+
+      // Direct lookup when both id and letter are passed (e.g. `wcag situations 1.1.1 F` or `wcag situation 1.1.1 F`)
+      if (id && letter) {
+        const sit = db.getSituation(id, letter);
+        if (!sit) {
+          console.error(`Error: Situation "${letter}" for Criterion "${id}" not found.`);
+          process.exitCode = 1;
+          return;
+        }
+
+        if (format === 'json' || format === 'ndjson') {
+          console.log(formatJsonOutput(sit, undefined, format === 'ndjson'));
+        } else {
+          console.log(formatSituationMarkdown(sit));
+        }
+        return;
+      }
+
+      // Handle compound IDs (e.g. `wcag situations 1.1.1-F` or `wcag situation 1.1.1-F`)
+      if (id && /^[0-9.]+\s*[-_ ]\s*[A-Za-z0-9]+$/.test(id.trim())) {
+        const parts = id.trim().split(/[-_ ]+/);
+        const sit = db.getSituation(parts[0], parts[1]);
+        if (sit) {
+          if (format === 'json' || format === 'ndjson') {
+            console.log(formatJsonOutput(sit, undefined, format === 'ndjson'));
+          } else {
+            console.log(formatSituationMarkdown(sit));
+          }
+          return;
+        }
+      }
+
       const sc = id ? db.getCriterion(id) : undefined;
       const situations = db.getSituations(id, options.search);
 
@@ -169,28 +202,6 @@ export function createProgram(db: WCAGDatabase = getDatabase()): Command {
         console.log(formatJsonOutput(situations, undefined, format === 'ndjson'));
       } else {
         console.log(formatSituationsListMarkdown(situations, sc));
-      }
-    });
-
-  // Command: situation
-  program
-    .command('situation <criterionId> <letter>')
-    .description('Get details and techniques for a specific criterion situation (e.g. 1.1.1 A)')
-    .option('-o, --output <format>', 'Output format: markdown, json, ndjson')
-    .action((criterionId, letter, options) => {
-      const format = resolveOutputFormat(options.output);
-      const sit = db.getSituation(criterionId, letter);
-
-      if (!sit) {
-        console.error(`Error: Situation "${letter}" for Criterion "${criterionId}" not found.`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if (format === 'json' || format === 'ndjson') {
-        console.log(formatJsonOutput(sit, undefined, format === 'ndjson'));
-      } else {
-        console.log(formatSituationMarkdown(sit));
       }
     });
 
@@ -303,6 +314,10 @@ export function createProgram(db: WCAGDatabase = getDatabase()): Command {
 
 export function main(): void {
   const program = createProgram();
+  if (process.argv.length <= 2) {
+    program.outputHelp();
+    return;
+  }
   program.parse(process.argv);
 }
 

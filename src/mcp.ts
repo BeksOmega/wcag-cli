@@ -263,7 +263,10 @@ export function createMcpServer(): Server {
 
     switch (name) {
       case 'wcag_tree': {
-        const principles = db.getPrinciples(args.version as string);
+        const principles = db.getPrinciples({
+          level: args.level as string,
+          version: args.version as string,
+        });
         if (format === 'json') {
           return {
             content: [{ type: 'text', text: formatJsonOutput(principles) }],
@@ -297,7 +300,15 @@ export function createMcpServer(): Server {
         const id = args.id as string;
         const sc = db.getCriterion(id);
         if (!sc) {
-          throw new McpError(ErrorCode.InvalidParams, `Criterion not found: ${id}`);
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `Error: Criterion not found: "${id}". Use wcag_list_criteria or wcag_search to locate valid criteria.`,
+              },
+            ],
+          };
         }
 
         const situation = normalizeSituationLetter(args.situation as string);
@@ -358,10 +369,15 @@ export function createMcpServer(): Server {
         const letter = args.letter as string;
         const sit = db.getSituation(critId, letter);
         if (!sit) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Situation "${letter}" for criterion "${critId}" not found.`
-          );
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `Error: Situation "${letter}" for criterion "${critId}" not found. Use wcag_list_situations to list available scenarios.`,
+              },
+            ],
+          };
         }
 
         if (format === 'json') {
@@ -378,7 +394,15 @@ export function createMcpServer(): Server {
         const id = args.id as string;
         const sc = db.getCriterion(id);
         if (!sc) {
-          throw new McpError(ErrorCode.InvalidParams, `Criterion not found: ${id}`);
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `Error: Criterion not found: "${id}".`,
+              },
+            ],
+          };
         }
         const failures = db.getFailuresForCriterion(sc.num);
 
@@ -396,7 +420,15 @@ export function createMcpServer(): Server {
         const id = args.id as string;
         const techs = db.getTechnique(id);
         if (techs.length === 0) {
-          throw new McpError(ErrorCode.InvalidParams, `Technique not found: ${id}`);
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `Error: Technique not found: "${id}". Example IDs: ARIA6, G18, H37, F3.`,
+              },
+            ],
+          };
         }
 
         if (format === 'json') {
