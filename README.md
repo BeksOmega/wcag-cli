@@ -2,7 +2,7 @@
 
 > **Token-efficient WCAG 2.2 exploration CLI and MCP server designed for AI agents and human engineers.**
 
-[![npm version](https://img.shields.io/npm/v/wcag-cli.svg)](https://www.npmjs.com/package/wcag-cli)
+[![npm version](https://img.shields.io/npm/v/@beksomega/wcag-cli.svg)](https://www.npmjs.com/package/@beksomega/wcag-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Browsing the official WCAG Quick Reference web application can easily dump 50,000+ tokens of HTML, CSS, and DOM overhead into an AI coding assistant's context window. 
@@ -23,13 +23,13 @@ Built according to [Agent DX Principles](https://justin.poehnelt.com/posts/rewri
 
 ### Run instantly with npx
 ```bash
-npx wcag-cli tree
-npx wcag-cli get 1.4.3
+npx @beksomega/wcag-cli tree
+npx @beksomega/wcag-cli get 1.4.3
 ```
 
 ### Install globally
 ```bash
-npm install -g wcag-cli
+npm install -g @beksomega/wcag-cli
 wcag --help
 ```
 
@@ -134,7 +134,7 @@ wcag sync
   "mcpServers": {
     "wcag": {
       "command": "npx",
-      "args": ["-y", "wcag-cli", "mcp"]
+      "args": ["-y", "@beksomega/wcag-cli", "mcp"]
     }
   }
 }
@@ -163,7 +163,7 @@ This repository ships with:
 ## Programmatic TypeScript API
 
 ```typescript
-import { getDatabase } from 'wcag-cli';
+import { getDatabase } from '@beksomega/wcag-cli';
 
 const db = getDatabase();
 
