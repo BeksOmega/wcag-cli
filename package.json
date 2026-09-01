@@ -1,6 +1,9 @@
 {
-  "name": "wcag-cli",
+  "name": "@beksomega/wcag-cli",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Token-efficient WCAG 2.2 exploration CLI and MCP server for AI agents and developers",
   "type": "module",
   "bin": {
