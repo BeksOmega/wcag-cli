@@ -145,8 +145,11 @@ export function createProgram(db: WCAGDatabase = getDatabase()): Command {
           console.log(`## Guideline ${guideline.num}: ${guideline.handle}\n`);
           console.log(`${guideline.title}\n`);
           console.log(`**Success Criteria**: ${guideline.successcriteria.map((s) => `${s.num} (${s.handle})`).join(', ')}`);
-          if (guideline.url) {
-            console.log(`**Reference**: ${guideline.url}`);
+          if (guideline.specUrl) {
+            console.log(`**Spec URL**: ${guideline.specUrl}`);
+          }
+          if (guideline.understandingUrl || guideline.url) {
+            console.log(`**Reference**: ${guideline.understandingUrl || guideline.url}`);
           }
         }
         return;

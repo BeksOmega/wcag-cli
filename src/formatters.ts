@@ -35,7 +35,9 @@ export function formatTreeMarkdown(principles: Principle[], fields?: string[]): 
       lines.push(`*${g.title}*\n`);
 
       for (const sc of g.successcriteria || []) {
-        lines.push(`- **${sc.num} ${sc.handle}** (Level ${sc.level})`);
+        const specLink = sc.specUrl ? ` | [Spec](${sc.specUrl})` : '';
+        const underLink = sc.understandingUrl ? ` | [Understanding](${sc.understandingUrl})` : '';
+        lines.push(`- **${sc.num} ${sc.handle}** (Level ${sc.level})${specLink}${underLink}`);
       }
       lines.push('');
     }
@@ -55,7 +57,9 @@ export function formatCriteriaListMarkdown(criteria: SuccessCriterion[], fields?
         .map(([k, v]) => `**${k}**: ${v}`);
       lines.push(`- ${parts.length > 0 ? parts.join(' | ') : `**SC ${sc.num}**`}`);
     } else {
-      lines.push(`- **SC ${sc.num} ${sc.handle}** (Level ${sc.level}) - ${sc.title}`);
+      const specLink = sc.specUrl ? ` | [Spec](${sc.specUrl})` : '';
+      const underLink = sc.understandingUrl ? ` | [Understanding](${sc.understandingUrl})` : '';
+      lines.push(`- **SC ${sc.num} ${sc.handle}** (Level ${sc.level})${specLink}${underLink} - ${sc.title}`);
     }
   }
 
@@ -78,8 +82,14 @@ export function formatCriterionMarkdown(
   lines.push(`## SC ${sc.num}: ${sc.handle} (Level ${sc.level})`);
   lines.push(`**Guideline**: ${sc.guidelineNum || ''} ${sc.guidelineHandle || ''}`);
   lines.push(`**Principle**: ${sc.principleNum || ''} ${sc.principleHandle || ''}`);
-  if (sc.url) {
-    lines.push(`**Understanding URL**: ${sc.url}`);
+  if (sc.specUrl) {
+    lines.push(`**Spec URL**: ${sc.specUrl}`);
+  }
+  if (sc.understandingUrl || sc.url) {
+    lines.push(`**Understanding URL**: ${sc.understandingUrl || sc.url}`);
+  }
+  if (sc.quickrefUrl) {
+    lines.push(`**QuickRef URL**: ${sc.quickrefUrl}`);
   }
   lines.push('');
 
@@ -117,7 +127,8 @@ export function formatCriterionMarkdown(
       for (const t of sit.techniques) {
         if (!options.techFilter || (t.technology && options.techFilter.includes(t.technology.toLowerCase()))) {
           const techTag = t.technology ? ` \`[${t.technology}]\`` : '';
-          lines.push(`- \`${t.id}\`${techTag}: ${t.title}`);
+          const urlTag = t.url ? ` ([Technique](${t.url}))` : '';
+          lines.push(`- \`${t.id}\`${techTag}: ${t.title}${urlTag}`);
         }
       }
       lines.push('');
@@ -132,7 +143,8 @@ export function formatCriterionMarkdown(
       for (const t of sufficient) {
         const techTag = t.technology ? ` \`[${t.technology}]\`` : '';
         const sitTag = t.situationLetter ? ` *(Situation ${t.situationLetter})*` : '';
-        lines.push(`- \`${t.id}\`${techTag}: ${t.title}${sitTag}`);
+        const urlTag = t.url ? ` ([Technique](${t.url}))` : '';
+        lines.push(`- \`${t.id}\`${techTag}: ${t.title}${sitTag}${urlTag}`);
       }
       lines.push('');
     }
@@ -141,7 +153,8 @@ export function formatCriterionMarkdown(
       lines.push(`### Advisory Techniques (${advisory.length})`);
       for (const t of advisory) {
         const techTag = t.technology ? ` \`[${t.technology}]\`` : '';
-        lines.push(`- \`${t.id}\`${techTag}: ${t.title}`);
+        const urlTag = t.url ? ` ([Technique](${t.url}))` : '';
+        lines.push(`- \`${t.id}\`${techTag}: ${t.title}${urlTag}`);
       }
       lines.push('');
     }
@@ -149,7 +162,8 @@ export function formatCriterionMarkdown(
     if (failures.length > 0) {
       lines.push(`### Common Failures (${failures.length})`);
       for (const t of failures) {
-        lines.push(`- \`${t.id}\`: ${t.title}`);
+        const urlTag = t.url ? ` ([Failure](${t.url}))` : '';
+        lines.push(`- \`${t.id}\`: ${t.title}${urlTag}`);
       }
       lines.push('');
     }
@@ -168,7 +182,13 @@ export function formatSituationsListMarkdown(situations: Situation[], sc?: Succe
   const lines: string[] = [];
   if (sc) {
     lines.push(`## Situations (Decision Tree) for SC ${sc.num}: ${sc.handle}\n`);
-    lines.push(`> Identify which scenario matches your UI element, then query \`wcag get ${sc.num} --situation <Letter>\` to get targeted techniques.\n`);
+    if (sc.specUrl) {
+      lines.push(`**Spec URL**: ${sc.specUrl}`);
+    }
+    if (sc.understandingUrl || sc.url) {
+      lines.push(`**Understanding URL**: ${sc.understandingUrl || sc.url}`);
+    }
+    lines.push(`\n> Identify which scenario matches your UI element, then query \`wcag get ${sc.num} --situation <Letter>\` to get targeted techniques.\n`);
   } else {
     lines.push(`# WCAG 2.2 Situations (${situations.length} total)\n`);
   }
@@ -187,8 +207,15 @@ export function formatSituationMarkdown(sit: Situation): string {
   const lines: string[] = [
     `## SC ${sit.criterionNum} (${sit.criterionHandle}) - Situation ${sit.letter}\n`,
     `**Condition**: ${sit.title}\n`,
-    `### Sufficient Techniques for this Situation (${sit.techniques.length}):\n`,
   ];
+  if (sit.specUrl) {
+    lines.push(`**Spec URL**: ${sit.specUrl}`);
+  }
+  if (sit.understandingUrl || sit.url) {
+    lines.push(`**Understanding URL**: ${sit.understandingUrl || sit.url}`);
+  }
+  lines.push('');
+  lines.push(`### Sufficient Techniques for this Situation (${sit.techniques.length}):\n`);
 
   if (sit.techniques.length === 0) {
     lines.push('*No specific technique references listed.*');
@@ -208,8 +235,15 @@ export function formatSituationMarkdown(sit: Situation): string {
 export function formatFailuresMarkdown(sc: SuccessCriterion, failures: FlatTechnique[]): string {
   const lines: string[] = [
     `## Common Failures for SC ${sc.num}: ${sc.handle} (Level ${sc.level})\n`,
-    `> Use this checklist during code reviews to catch common anti-patterns before merging.\n`,
   ];
+  if (sc.specUrl) {
+    lines.push(`**Spec URL**: ${sc.specUrl}`);
+  }
+  if (sc.understandingUrl || sc.url) {
+    lines.push(`**Understanding URL**: ${sc.understandingUrl || sc.url}`);
+  }
+  lines.push('');
+  lines.push(`> Use this checklist during code reviews to catch common anti-patterns before merging.\n`);
 
   if (failures.length === 0) {
     lines.push('*No common failures documented for this criterion.*');
@@ -256,18 +290,36 @@ export function formatSearchMarkdown(results: SearchResult[]): string {
   for (const r of results) {
     if (r.type === 'criterion') {
       lines.push(`### SC ${r.num}: ${r.handle} (Level ${r.level || 'A'})`);
+      if (r.specUrl) {
+        lines.push(`*Spec*: ${r.specUrl}`);
+      }
+      if (r.understandingUrl || r.url) {
+        lines.push(`*Understanding*: ${r.understandingUrl || r.url}`);
+      }
       lines.push(`*Matched in ${r.matchedField} (Score: ${r.score})*`);
       lines.push(`${r.snippet}\n`);
     } else if (r.type === 'situation') {
       lines.push(`### ${r.handle}`);
+      if (r.specUrl) {
+        lines.push(`*Spec*: ${r.specUrl}`);
+      }
+      if (r.understandingUrl || r.url) {
+        lines.push(`*Understanding*: ${r.understandingUrl || r.url}`);
+      }
       lines.push(`*Matched in ${r.matchedField} (Score: ${r.score})*`);
       lines.push(`${r.snippet}\n`);
     } else if (r.type === 'technique') {
       lines.push(`### Technique \`${r.id}\`: ${r.title}`);
+      if (r.url) {
+        lines.push(`*URL*: ${r.url}`);
+      }
       lines.push(`*Applies to SC ${r.num} (Score: ${r.score})*`);
       lines.push(`${r.snippet}\n`);
     } else {
       lines.push(`### ${r.handle || r.id}`);
+      if (r.specUrl || r.url) {
+        lines.push(`*URL*: ${r.specUrl || r.url}`);
+      }
       lines.push(`${r.snippet}\n`);
     }
   }

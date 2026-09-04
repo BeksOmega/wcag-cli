@@ -146,4 +146,39 @@ describe('CLI In-Process Integration Tests', () => {
     expect(parsed.commands.tree).toBeDefined();
     expect(parsed.commands.search).toBeDefined();
   });
+
+  it('provides canonical spec and understanding URLs across commands', async () => {
+    // 1. wcag get
+    const getOut = await run(['get', '1.4.3']);
+    expect(getOut).toContain('**Spec URL**: https://www.w3.org/TR/WCAG22/#contrast-minimum');
+    expect(getOut).toContain('**Understanding URL**: https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html');
+    expect(getOut).toContain('**QuickRef URL**: https://www.w3.org/WAI/WCAG22/quickref/#contrast-minimum');
+
+    // 2. wcag tree
+    const treeOut = await run(['tree', '--level', 'AA']);
+    expect(treeOut).toContain('[Spec](https://www.w3.org/TR/WCAG22/#contrast-minimum)');
+    expect(treeOut).toContain('[Understanding](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)');
+
+    // 3. wcag list
+    const listOut = await run(['list', '--guideline', '1.4', '--level', 'AA']);
+    expect(listOut).toContain('[Spec](https://www.w3.org/TR/WCAG22/#contrast-minimum)');
+    expect(listOut).toContain('[Understanding](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)');
+
+    // 4. wcag search
+    const searchOut = await run(['search', 'contrast']);
+    expect(searchOut).toContain('*Spec*: https://www.w3.org/TR/WCAG22/#contrast-minimum');
+    expect(searchOut).toContain('*Understanding*: https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html');
+
+    // 5. wcag failures
+    const failuresOut = await run(['failures', '1.4.3']);
+    expect(failuresOut).toContain('**Spec URL**: https://www.w3.org/TR/WCAG22/#contrast-minimum');
+    expect(failuresOut).toContain('**Understanding URL**: https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html');
+
+    // 6. JSON output contains specUrl and understandingUrl
+    const jsonOut = await run(['get', '1.4.3', '--output', 'json']);
+    const parsed = JSON.parse(jsonOut);
+    expect(parsed.specUrl).toBe('https://www.w3.org/TR/WCAG22/#contrast-minimum');
+    expect(parsed.understandingUrl).toBe('https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html');
+    expect(parsed.quickrefUrl).toBe('https://www.w3.org/WAI/WCAG22/quickref/#contrast-minimum');
+  });
 });

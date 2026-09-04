@@ -26,6 +26,8 @@ describe('Raw JSON Parsing & Data Integrity', () => {
       expect(p?.id).toBe(expected.id);
       expect(p?.title.length).toBeGreaterThan(10);
       expect(p?.url).toBe(`https://www.w3.org/WAI/WCAG22/quickref/#${expected.id}`);
+      expect(p?.specUrl).toBe(`https://www.w3.org/TR/WCAG22/#${expected.id}`);
+      expect(p?.quickrefUrl).toBe(`https://www.w3.org/WAI/WCAG22/quickref/#${expected.id}`);
     }
   });
 
@@ -41,6 +43,8 @@ describe('Raw JSON Parsing & Data Integrity', () => {
       expect(g.principleHandle).toBeDefined();
       expect(g.successcriteria.length).toBeGreaterThan(0);
       expect(g.url).toBe(`https://www.w3.org/WAI/WCAG22/quickref/#${g.id}`);
+      expect(g.specUrl).toBe(`https://www.w3.org/TR/WCAG22/#${g.id}`);
+      expect(g.quickrefUrl).toBe(`https://www.w3.org/WAI/WCAG22/quickref/#${g.id}`);
     }
   });
 
@@ -64,8 +68,11 @@ describe('Raw JSON Parsing & Data Integrity', () => {
       expect(sc.principleNum).toBeDefined();
       expect(sc.principleHandle).toBeDefined();
 
-      // 3. W3C Understanding URL
+      // 3. W3C Understanding & Spec URLs
       expect(sc.url).toBe(`https://www.w3.org/WAI/WCAG22/Understanding/${sc.id}.html`);
+      expect(sc.specUrl).toBe(`https://www.w3.org/TR/WCAG22/#${sc.id}`);
+      expect(sc.understandingUrl).toBe(`https://www.w3.org/WAI/WCAG22/Understanding/${sc.id}.html`);
+      expect(sc.quickrefUrl).toBe(`https://www.w3.org/WAI/WCAG22/quickref/#${sc.id}`);
 
       // 4. Details parsing (notes, bulleted lists, paragraphs)
       if (sc.details) {

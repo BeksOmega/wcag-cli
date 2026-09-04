@@ -21,5 +21,9 @@ When executing this tool as an AI agent, follow these context window discipline 
    - When programmatically parsing output, set `--output json` or `OUTPUT_FORMAT=json`.
    - To inspect supported CLI arguments at runtime without guessing, run `wcag schema`.
 
-4. **Multi-Surface**:
+4. **Linking Humans to the Spec**:
+   - All criteria, guidelines, principles, and techniques output canonical links (`specUrl` for the normative W3C recommendation, `understandingUrl` for explanatory guidance, and `quickrefUrl`).
+   - When answering user questions or commenting on PR reviews, use these URLs to cite the official W3C specification directly.
+
+5. **Multi-Surface**:
    - If running inside an MCP-compatible host, connect to the stdio MCP server via `wcag mcp` (tools: `wcag_search`, `wcag_get_criterion`, `wcag_list_criteria`, `wcag_list_situations`, `wcag_get_situation`, `wcag_get_failures`, `wcag_get_technique`, `wcag_tree`).
