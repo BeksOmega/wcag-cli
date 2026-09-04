@@ -140,6 +140,7 @@ export class WCAGDatabase {
       // Only index valid technique IDs (filtering out group container IDs)
       if (item.id && typeof item.id === 'string' && isValidTechniqueId(item.id)) {
         const id = item.id.trim();
+        const techUrl = `https://www.w3.org/WAI/WCAG22/Techniques/${item.technology || (type === 'failure' ? 'failures' : 'general')}/${id}`;
         const techObj: FlatTechnique = {
           id,
           title: item.title ? stripHtml(item.title) : '',
@@ -149,7 +150,8 @@ export class WCAGDatabase {
           criterionHandle: sc.handle,
           situationLetter: sitLetter,
           situationTitle: sit || undefined,
-          url: `https://www.w3.org/WAI/WCAG22/Techniques/${item.technology || (type === 'failure' ? 'failures' : 'general')}/${id}`,
+          url: techUrl,
+          specUrl: techUrl,
         };
         this.techniques.push(techObj);
 
@@ -178,6 +180,9 @@ export class WCAGDatabase {
 
     for (const p of this.dataset.principles) {
       p.url = `https://www.w3.org/WAI/WCAG22/quickref/#${p.id}`;
+      p.specUrl = `https://www.w3.org/TR/WCAG22/#${p.id}`;
+      p.understandingUrl = `https://www.w3.org/WAI/WCAG22/quickref/#${p.id}`;
+      p.quickrefUrl = `https://www.w3.org/WAI/WCAG22/quickref/#${p.id}`;
       this.principles.push(p);
       this.principleByNum.set(p.num, p);
       this.principleById.set(p.id.toLowerCase(), p);
@@ -186,6 +191,9 @@ export class WCAGDatabase {
         g.principleNum = p.num;
         g.principleHandle = p.handle;
         g.url = `https://www.w3.org/WAI/WCAG22/quickref/#${g.id}`;
+        g.specUrl = `https://www.w3.org/TR/WCAG22/#${g.id}`;
+        g.understandingUrl = `https://www.w3.org/WAI/WCAG22/quickref/#${g.id}`;
+        g.quickrefUrl = `https://www.w3.org/WAI/WCAG22/quickref/#${g.id}`;
         this.guidelines.push(g);
         this.guidelineByNum.set(g.num, g);
         this.guidelineById.set(g.id.toLowerCase(), g);
@@ -204,6 +212,9 @@ export class WCAGDatabase {
           sc.principleNum = p.num;
           sc.principleHandle = p.handle;
           sc.url = `https://www.w3.org/WAI/WCAG22/Understanding/${sc.id}.html`;
+          sc.specUrl = `https://www.w3.org/TR/WCAG22/#${sc.id}`;
+          sc.understandingUrl = `https://www.w3.org/WAI/WCAG22/Understanding/${sc.id}.html`;
+          sc.quickrefUrl = `https://www.w3.org/WAI/WCAG22/quickref/#${sc.id}`;
           this.criteria.push(sc);
           this.criterionByNum.set(sc.num, sc);
           this.criterionById.set(sc.id.toLowerCase(), sc);
@@ -240,6 +251,7 @@ export class WCAGDatabase {
                   const collectSituationTechs = (subItem: any) => {
                     if (!subItem || typeof subItem !== 'object') return;
                     if (subItem.id && typeof subItem.id === 'string' && isValidTechniqueId(subItem.id)) {
+                      const subTechUrl = `https://www.w3.org/WAI/WCAG22/Techniques/${subItem.technology || 'general'}/${subItem.id.trim()}`;
                       situationTechs.push({
                         id: subItem.id.trim(),
                         title: subItem.title ? stripHtml(subItem.title) : '',
@@ -249,7 +261,8 @@ export class WCAGDatabase {
                         criterionHandle: sc.handle,
                         situationLetter: letter,
                         situationTitle: rawClean,
-                        url: `https://www.w3.org/WAI/WCAG22/Techniques/${subItem.technology || 'general'}/${subItem.id.trim()}`,
+                        url: subTechUrl,
+                        specUrl: subTechUrl,
                       });
                     }
                     if (Array.isArray(subItem.techniques)) {
@@ -272,6 +285,9 @@ export class WCAGDatabase {
                     criterionNum: sc.num,
                     criterionHandle: sc.handle,
                     techniques: situationTechs,
+                    url: `https://www.w3.org/WAI/WCAG22/Understanding/${sc.id}.html`,
+                    specUrl: `https://www.w3.org/TR/WCAG22/#${sc.id}`,
+                    understandingUrl: `https://www.w3.org/WAI/WCAG22/Understanding/${sc.id}.html`,
                   };
                   scSituations.push(situationObj);
                   this.situations.push(situationObj);
@@ -587,6 +603,9 @@ export class WCAGDatabase {
           score,
           matchedField,
           snippet: snippet.length > 200 ? snippet.slice(0, 197) + '...' : snippet,
+          url: sc.url,
+          specUrl: sc.specUrl,
+          understandingUrl: sc.understandingUrl,
         });
       }
     }
@@ -611,6 +630,9 @@ export class WCAGDatabase {
           score,
           matchedField: 'situation description',
           snippet: `[SC ${sit.criterionNum} Situation ${sit.letter}] ${sit.title}`,
+          url: sit.url,
+          specUrl: sit.specUrl,
+          understandingUrl: sit.understandingUrl,
         });
       }
     }
@@ -643,6 +665,8 @@ export class WCAGDatabase {
           score,
           matchedField: 'technique',
           snippet: `[${tech.technology || 'general'}] ${tech.title} (Applies to SC ${tech.criterionNum})`,
+          url: tech.url,
+          specUrl: tech.specUrl,
         });
       }
     }

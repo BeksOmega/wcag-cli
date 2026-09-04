@@ -60,6 +60,9 @@ export interface SuccessCriterion {
   principleNum?: string;
   principleHandle?: string;
   url?: string;
+  specUrl?: string;
+  understandingUrl?: string;
+  quickrefUrl?: string;
 }
 
 export interface Guideline {
@@ -73,6 +76,9 @@ export interface Guideline {
   principleNum?: string;
   principleHandle?: string;
   url?: string;
+  specUrl?: string;
+  understandingUrl?: string;
+  quickrefUrl?: string;
 }
 
 export interface Principle {
@@ -83,6 +89,9 @@ export interface Principle {
   versions?: string[];
   guidelines: Guideline[];
   url?: string;
+  specUrl?: string;
+  understandingUrl?: string;
+  quickrefUrl?: string;
 }
 
 export interface WCAGDataset {
@@ -99,6 +108,7 @@ export interface FlatTechnique {
   situationLetter?: string;
   situationTitle?: string;
   url: string;
+  specUrl?: string;
 }
 
 export interface Situation {
@@ -108,6 +118,9 @@ export interface Situation {
   criterionNum: string;
   criterionHandle: string;
   techniques: FlatTechnique[];
+  url?: string;
+  specUrl?: string;
+  understandingUrl?: string;
 }
 
 export interface SearchResult {
@@ -120,6 +133,9 @@ export interface SearchResult {
   score: number;
   matchedField: string;
   snippet: string;
+  url?: string;
+  specUrl?: string;
+  understandingUrl?: string;
 }
 
 export type OutputFormat = 'markdown' | 'json' | 'ndjson';

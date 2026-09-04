@@ -11,6 +11,7 @@ Browsing the official WCAG Quick Reference web application can easily dump 50,00
 
 Built according to [Agent DX Principles](https://justin.poehnelt.com/posts/rewrite-your-cli-for-ai-agents/):
 - ⚡ **Zero-Latency Offline Execution**: Bundles `wcag22.json` directly (~306 KB) for instant (<5ms) queries in sandboxed environments without network egress.
+- 🔗 **Canonical Web Links**: Every command provides canonical W3C specification (`specUrl`), Understanding (`understandingUrl`), and QuickRef (`quickrefUrl`) links so AI agents can link humans directly to the spec.
 - 🌳 **First-Class Situations (Decision Trees)**: Directly query the 52 conditional implementation scenarios (e.g. decorative image vs. complex chart vs. input button) for targeted techniques without token dumps.
 - 🎯 **Context Window Discipline**: Field projection (`--fields`) and compact Markdown output prevent token bloat.
 - 🛡️ **Hallucination Hardening**: Defensively normalizes malformed agent arguments (`1.4.3?fields=all`, `SC-1.4.3`, `%201.4.3`).

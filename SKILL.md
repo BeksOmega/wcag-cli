@@ -53,3 +53,4 @@ wcag schema situations
 2. **Conducting Accessibility Code Reviews**:
    - Identify the applicable criteria for the modified UI components.
    - Run `wcag failures <sc_number>` to ensure the change does not introduce known failure anti-patterns.
+   - Use the included **Spec URLs** (`https://www.w3.org/TR/WCAG22/#...`) and **Understanding URLs** to link teammates directly to the relevant section of the official W3C specification.
