@@ -25,7 +25,7 @@ export function createMcpServer(): Server {
   const server = new Server(
     {
       name: 'wcag-cli-mcp',
-      version: '0.1.0',
+      version: '0.1.2',
     },
     {
       capabilities: {

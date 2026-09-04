@@ -42,7 +42,7 @@ export function createProgram(db: WCAGDatabase = getDatabase()): Command {
   program
     .name('wcag')
     .description('Token-efficient WCAG 2.2 exploration CLI and MCP server for AI agents and developers')
-    .version('0.1.0', '-V, --cli-version', 'output the version of wcag-cli');
+    .version('0.1.2', '-V, --cli-version', 'output the version of wcag-cli');
 
   // Command: tree
   program
